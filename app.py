@@ -80,22 +80,27 @@ else:
     st.markdown("### Whiteboard")
     tool = st.radio("Tool", ["freedraw", "line", "rect", "circle", "point", "transform"], horizontal=True)
     stroke_color = st.color_picker("Stroke color", "#000000")
-    bg_color = st.color_picker("Background color", "#FFFFFF")
+    # Fixed background to avoid canvas reset/flicker on changes
+    bg_color = "#FFFFFF"
     stroke_width = st.slider("Stroke width", 1, 30, 4)
     drawing_mode = tool
     point_display_radius = st.slider("Point display radius", 1, 25, 6) if drawing_mode == "point" else 0
 
+    # Tip about performance
+    st.caption("Tip: To minimize flicker, the background is fixed to white and updates are sent on demand.")
+
     canvas_result = st_canvas(
-        fill_color="rgba(255, 165, 0, 0.3)",  # Fixed fill color with some opacity
+        fill_color="rgba(255, 165, 0, 0.3)",
         stroke_width=stroke_width,
         stroke_color=stroke_color,
         background_color=bg_color,
-        height=600,
-        width=1000,
+        height=520,
+        width=900,
         drawing_mode=drawing_mode,
         point_display_radius=point_display_radius,
         key=f"couple_canvas_{st.session_state['canvas_key_counter']}",
         display_toolbar=True,
+        update_streamlit=False,  # disable realtime updates for performance
     )
 
     st.markdown("---")
@@ -111,7 +116,7 @@ else:
             img.save(buf, format="PNG")
             st.download_button("Download drawing as PNG", data=buf.getvalue(), file_name="drawing.png", mime="image/png")
         else:
-            st.info("Draw something to enable download.")
+            st.info("To enable download, click the Submit button on the canvas toolbar to send the latest drawing.")
     with col3:
         if st.button("Reset selection and start over"):
             st.session_state.pop("selected_photo_path", None)
