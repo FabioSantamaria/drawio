@@ -1,1 +1,29 @@
-/uploads
+# Python caches
+__pycache__/
+*.py[cod]
+*.pyc
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+.env/
+
+# Editors/IDE
+.vscode/
+.idea/
+
+# Streamlit config & secrets
+.streamlit/secrets.toml
+.streamlit/config.toml
+
+# App data
+uploads/
+
+# Test & type-check caches
+.pytest_cache/
+.mypy_cache/
+
+# OS-generated files
+.DS_Store
+Thumbs.db
