@@ -52,7 +52,7 @@ export default function App({ args }) {
   }, [exportRequested]);
 
   return (
-    <div style={{ width, height }}>
+    <div style={{ width: "100%", height }}>
       <Excalidraw
         excalidrawAPI={(api) => (apiRef.current = api)}
         theme={theme}
