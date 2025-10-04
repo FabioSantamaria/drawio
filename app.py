@@ -90,12 +90,8 @@ else:
     )
 
     st.markdown("---")
-    col1, col2, col3 = st.columns(3)
+    col1 = st.columns(1)
     with col1:
-        if st.button("Export drawing"):
-            st.session_state["wb_export"] = True
-            st.experimental_rerun()
-    with col2:
         data_url = result.get("dataUrl") if isinstance(result, dict) else None
         if data_url:
             try:
@@ -106,10 +102,6 @@ else:
                 st.error(f"Failed to decode image: {e}")
         else:
             st.info("Click Export to send the image from the canvas, then download.")
-    with col3:
-        if st.button("Reset selection and start over"):
-            st.session_state.pop("selected_photo_path", None)
-            st.experimental_rerun()
 
     # Reset export flag after one-shot
     if st.session_state.get("wb_export"):
