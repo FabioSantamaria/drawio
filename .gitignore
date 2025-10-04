@@ -27,3 +27,8 @@ uploads/
 # OS-generated files
 .DS_Store
 Thumbs.db
+# React component frontend
+konva_canvas/frontend/node_modules/
+konva_canvas/frontend/dist/
+# Vite local dev server cache
+konva_canvas/frontend/.vite/

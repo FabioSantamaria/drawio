@@ -1,10 +1,12 @@
 import os
 import glob
 import io
+import base64
 
 import streamlit as st
 from PIL import Image
 from streamlit_drawable_canvas import st_canvas
+from konva_canvas import konva_canvas
 
 APP_TITLE = "Couple's Place Guess — Drawing Game"
 UPLOAD_DIR = "uploads"
@@ -78,48 +80,56 @@ else:
 
     # Toolbar
     st.markdown("### Whiteboard")
-    tool = st.radio("Tool", ["freedraw", "line", "rect", "circle", "point", "transform"], horizontal=True)
+    tool = st.radio("Tool", ["freedraw"], horizontal=True)
     stroke_color = st.color_picker("Stroke color", "#000000")
-    # Fixed background to avoid canvas reset/flicker on changes
-    bg_color = "#FFFFFF"
     stroke_width = st.slider("Stroke width", 1, 30, 4)
-    drawing_mode = tool
-    point_display_radius = st.slider("Point display radius", 1, 25, 6) if drawing_mode == "point" else 0
 
-    # Tip about performance
-    st.caption("Tip: To minimize flicker, the background is fixed to white and updates are sent on demand.")
+    # Clear flag from session state
+    if "konva_clear" not in st.session_state:
+        st.session_state["konva_clear"] = False
+    clear_flag = st.session_state["konva_clear"]
 
-    canvas_result = st_canvas(
-        fill_color="rgba(255, 165, 0, 0.3)",
-        stroke_width=stroke_width,
-        stroke_color=stroke_color,
-        background_color=bg_color,
-        height=520,
+    # Konva canvas component (embedded React)
+    st.caption("React + Konva canvas: click Export to send PNG to Streamlit.")
+    result = konva_canvas(
         width=900,
-        drawing_mode=drawing_mode,
-        point_display_radius=point_display_radius,
-        key=f"couple_canvas_{st.session_state['canvas_key_counter']}",
-        display_toolbar=True,
-        update_streamlit=False,  # disable realtime updates for performance
+        height=520,
+        color=stroke_color,
+        stroke_width=stroke_width,
+        clear=clear_flag,
+        key="konva_canvas",
     )
 
     st.markdown("---")
     col1, col2, col3 = st.columns(3)
     with col1:
         if st.button("Clear drawing"):
-            st.session_state["canvas_key_counter"] += 1
+            st.session_state["konva_clear"] = True
             st.experimental_rerun()
     with col2:
-        if canvas_result and canvas_result.image_data is not None:
-            img = Image.fromarray(canvas_result.image_data.astype("uint8"))
-            buf = io.BytesIO()
-            img.save(buf, format="PNG")
-            st.download_button("Download drawing as PNG", data=buf.getvalue(), file_name="drawing.png", mime="image/png")
+        data_url = result.get("dataUrl") if isinstance(result, dict) else None
+        if data_url:
+            try:
+                # Expecting data:image/png;base64,<payload>
+                payload = data_url.split(",", 1)[1]
+                png_bytes = base64.b64decode(payload)
+                st.download_button(
+                    "Download drawing as PNG",
+                    data=png_bytes,
+                    file_name="drawing.png",
+                    mime="image/png",
+                )
+            except Exception as e:
+                st.error(f"Failed to decode image: {e}")
         else:
-            st.info("To enable download, click the Submit button on the canvas toolbar to send the latest drawing.")
+            st.info("Click Export in the canvas to send the image, then download.")
     with col3:
         if st.button("Reset selection and start over"):
             st.session_state.pop("selected_photo_path", None)
             st.experimental_rerun()
+
+    # Reset clear flag so it only applies once
+    if st.session_state.get("konva_clear"):
+        st.session_state["konva_clear"] = False
 
 st.caption("Tip: Invite friends to guess the place over a video call or in person!")
