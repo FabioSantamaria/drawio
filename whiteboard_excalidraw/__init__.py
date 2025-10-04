@@ -1,0 +1,1 @@
+from .component import excalidraw_canvas

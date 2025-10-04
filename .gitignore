@@ -20,6 +20,15 @@ ENV/
 # App data
 uploads/
 
+# Node/JS frontend builds
+whiteboard_excalidraw/frontend/node_modules/
+whiteboard_excalidraw/frontend/dist/
+whiteboard_excalidraw/frontend/.env*
+whiteboard_excalidraw/frontend/.DS_Store
+whiteboard_excalidraw/frontend/npm-debug.log*
+whiteboard_excalidraw/frontend/yarn-debug.log*
+whiteboard_excalidraw/frontend/yarn-error.log*
+
 # Test & type-check caches
 .pytest_cache/
 .mypy_cache/

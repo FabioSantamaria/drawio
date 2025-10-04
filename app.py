@@ -1,10 +1,11 @@
 import os
 import glob
 import io
+import base64
 
 import streamlit as st
 from PIL import Image
-from streamlit_drawable_canvas import st_canvas
+from whiteboard_excalidraw import excalidraw_canvas
 
 APP_TITLE = "Couple's Place Guess — Drawing Game"
 UPLOAD_DIR = "uploads"
@@ -72,54 +73,46 @@ else:
     with st.expander("Optional: Peek the selected photo (cheat mode)"):
         st.image(Image.open(selected_path), caption="Selected photo", use_column_width=True)
 
-    # Initialize a counter for canvas key to allow clearing
-    if "canvas_key_counter" not in st.session_state:
-        st.session_state["canvas_key_counter"] = 0
+    # Initialize export trigger for Excalidraw component
+    if "wb_export" not in st.session_state:
+        st.session_state["wb_export"] = False
 
     # Toolbar
     st.markdown("### Whiteboard")
-    tool = st.radio("Tool", ["freedraw", "line", "rect", "circle", "point", "transform"], horizontal=True)
-    stroke_color = st.color_picker("Stroke color", "#000000")
-    # Fixed background to avoid canvas reset/flicker on changes
-    bg_color = "#FFFFFF"
-    stroke_width = st.slider("Stroke width", 1, 30, 4)
-    drawing_mode = tool
-    point_display_radius = st.slider("Point display radius", 1, 25, 6) if drawing_mode == "point" else 0
-
-    # Tip about performance
-    st.caption("Tip: To minimize flicker, the background is fixed to white and updates are sent on demand.")
-
-    canvas_result = st_canvas(
-        fill_color="rgba(255, 165, 0, 0.3)",
-        stroke_width=stroke_width,
-        stroke_color=stroke_color,
-        background_color=bg_color,
-        height=520,
+    st.caption("Excalidraw canvas: use built-in tools; click Export below to capture PNG.")
+    result = excalidraw_canvas(
         width=900,
-        drawing_mode=drawing_mode,
-        point_display_radius=point_display_radius,
-        key=f"couple_canvas_{st.session_state['canvas_key_counter']}",
-        display_toolbar=True,
-        update_streamlit=False,  # disable realtime updates for performance
+        height=520,
+        read_only=False,
+        theme="light",
+        export=st.session_state["wb_export"],
+        key="excalidraw_canvas",
     )
 
     st.markdown("---")
     col1, col2, col3 = st.columns(3)
     with col1:
-        if st.button("Clear drawing"):
-            st.session_state["canvas_key_counter"] += 1
+        if st.button("Export drawing"):
+            st.session_state["wb_export"] = True
             st.experimental_rerun()
     with col2:
-        if canvas_result and canvas_result.image_data is not None:
-            img = Image.fromarray(canvas_result.image_data.astype("uint8"))
-            buf = io.BytesIO()
-            img.save(buf, format="PNG")
-            st.download_button("Download drawing as PNG", data=buf.getvalue(), file_name="drawing.png", mime="image/png")
+        data_url = result.get("dataUrl") if isinstance(result, dict) else None
+        if data_url:
+            try:
+                payload = data_url.split(",", 1)[1]
+                png_bytes = base64.b64decode(payload)
+                st.download_button("Download drawing as PNG", data=png_bytes, file_name="drawing.png", mime="image/png")
+            except Exception as e:
+                st.error(f"Failed to decode image: {e}")
         else:
-            st.info("To enable download, click the Submit button on the canvas toolbar to send the latest drawing.")
+            st.info("Click Export to send the image from the canvas, then download.")
     with col3:
         if st.button("Reset selection and start over"):
             st.session_state.pop("selected_photo_path", None)
             st.experimental_rerun()
+
+    # Reset export flag after one-shot
+    if st.session_state.get("wb_export"):
+        st.session_state["wb_export"] = False
 
 st.caption("Tip: Invite friends to guess the place over a video call or in person!")
