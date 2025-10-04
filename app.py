@@ -31,17 +31,34 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # Photo upload section
 st.subheader("Step 1 — Upload your photos")
+
+# Track which uploaded filenames we've already saved to disk to avoid re-saving
+if "saved_upload_names" not in st.session_state:
+    st.session_state["saved_upload_names"] = []
+
+def _on_upload_change():
+    # When the selection changes, allow saving new files again
+    st.session_state["saved_upload_names"] = []
+
 uploaded_files = st.file_uploader(
-    "Upload images (JPG/PNG)", type=["jpg", "jpeg", "png"], accept_multiple_files=True
+    "Upload images (JPG/PNG)",
+    type=["jpg", "jpeg", "png"],
+    accept_multiple_files=True,
+    key="photo_uploads",
+    on_change=_on_upload_change,
 )
 
 if uploaded_files:
     for f in uploaded_files:
-        # Save to temporary folder
-        bytes_data = f.read()
-        file_path = os.path.join(UPLOAD_DIR, f.name)
-        with open(file_path, "wb") as out:
-            out.write(bytes_data)
+        name = f.name
+        file_path = os.path.join(UPLOAD_DIR, name)
+        # Only save once per selection to prevent re-adding removed images on reruns
+        if name not in st.session_state["saved_upload_names"]:
+            if not os.path.exists(file_path):
+                bytes_data = f.read()
+                with open(file_path, "wb") as out:
+                    out.write(bytes_data)
+            st.session_state["saved_upload_names"].append(name)
 
 # Discover available photos
 image_paths = sorted(
@@ -58,10 +75,42 @@ else:
     cols = st.columns(3)
     for i, p in enumerate(image_paths):
         with cols[i % 3]:
-            img = Image.open(p)
-            st.image(img, use_column_width=True)
-            if st.button(f"Select this photo", key=f"select_{i}"):
-                st.session_state["selected_photo_path"] = p
+            # Safely load image into memory so the file isn't locked (Windows)
+            try:
+                with Image.open(p) as im:
+                    img = im.copy()
+            except Exception:
+                img = None
+
+            if img is not None:
+                st.image(img, use_column_width=True)
+            else:
+                st.warning("Could not preview this image.")
+
+            btn_select, btn_remove = st.columns(2)
+            with btn_select:
+                if st.button("Select this photo", key=f"select_{i}"):
+                    st.session_state["selected_photo_path"] = p
+            with btn_remove:
+                if st.button("Remove photo", type="secondary", key=f"remove_{i}"):
+                    delete_ok = False
+                    try:
+                        # If currently selected, clear selection
+                        if st.session_state.get("selected_photo_path") == p:
+                            st.session_state.pop("selected_photo_path", None)
+                        os.remove(p)
+                        # Prevent the uploader from re-creating this file on rerun
+                        base = os.path.basename(p)
+                        if base not in st.session_state["saved_upload_names"]:
+                            st.session_state["saved_upload_names"].append(base)
+                        delete_ok = True
+                    except Exception as e:
+                        st.error(f"Failed to remove photo: {e}")
+
+                    # Trigger rerun AFTER the try/except so we don't catch the rerun
+                    if delete_ok:
+                        st.success("Photo removed.")
+                        st.rerun()
 
 # Drawing section
 st.subheader("Step 3 — Draw while your partner guesses")
@@ -90,18 +139,8 @@ else:
     )
 
     st.markdown("---")
-    col1 = st.columns(1)
-    with col1:
-        data_url = result.get("dataUrl") if isinstance(result, dict) else None
-        if data_url:
-            try:
-                payload = data_url.split(",", 1)[1]
-                png_bytes = base64.b64decode(payload)
-                st.download_button("Download drawing as PNG", data=png_bytes, file_name="drawing.png", mime="image/png")
-            except Exception as e:
-                st.error(f"Failed to decode image: {e}")
-        else:
-            st.info("Click Export to send the image from the canvas, then download.")
+
+    st.info("Click Export to send the image from the canvas, then download.")
 
     # Reset export flag after one-shot
     if st.session_state.get("wb_export"):
